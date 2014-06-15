@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import os
 import sys
 import urllib.parse
 import json
@@ -17,13 +18,16 @@ def main():
     _, resp = urlfetch('http://api.bilibili.tv/search?type=json&appkey=' + APPKEY + '&keyword=' + urllib.parse.quote(sys.argv[1]))
     data = json.loads( resp.decode('utf-8', 'replace') )
     for k, v in data['result'].items():
-        print_hl(' >> ' + v['title']);
+        if os.name == 'posix':
+            print_hl(' >> ' + v['title'])
+        else:
+            print(' >> ' + v['title'])
         if v['type'] == 'video':
-            print('  [Video] Author:' + v['author'] + ' Play:' + v['play'] + ' Favorites:' +  v['favorites'] + ' Review:' + v['review'] + ' Comment:' + v['video_review']);
-            print('  http://www.bilibili.tv/video/av' + str(v['aid']) + "\n")
+            print('  [Video] Author:%(author)s Play:%(play)s Favorites:%(favorites)s Review:%(review)s Comment:%(video_review)s' % v)
+            print("  http://www.bilibili.tv/video/av%s \n" % str(v['aid']))
         elif v['type'] == 'special':
-            print("  [Special]")
-            print('  http://www.bilibili.tv/sp/' + str(v['spid']) + "\n")
+            print('  [Special]')
+            print("  http://www.bilibili.tv/sp/%s \n" % str(v['spid']))
 
 if __name__ == '__main__':
     sys.exit(main())
