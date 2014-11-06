@@ -56,7 +56,7 @@ APPKEY = '85eb6835b0a1034e'  # The same key as in original Biligrab
 APPSEC = '2ad42749773c441109bdc0191257a664'  # Do not abuse please, get one yourself if you need
 
 
-def biligrab(url, *, debug=False, verbose=False, media=None, cookie=None, overseas=False, quality=None, mpvflags=[], d2aflags={}):
+def biligrab(url, *, debug=False, verbose=False, media=None, cookie=None, nodelsub=False, overseas=False, quality=None, mpvflags=[], d2aflags={}):
     # Parse URL
     regex = re.compile('http:/*[^/]+/video/av(\\d+)(/|/index.html|/index_(\\d+).html)?(\\?|#|$)')
     url_get_cid = 'http://api.bilibili.com/view?'
@@ -120,7 +120,10 @@ def biligrab(url, *, debug=False, verbose=False, media=None, cookie=None, overse
     logging.info('Loading comments...')
     _, resp_comment = urlfetch(url_get_comment % {'cid': cid}, cookie=cookie)
     comment_in = io.StringIO(resp_comment.decode('utf-8', 'replace'))
-    comment_out = tempfile.NamedTemporaryFile(mode='w', encoding='utf-8-sig', newline='\r\n', prefix='tmp-danmaku2ass-', suffix='.ass')
+    if nodelsub:
+        comment_out = tempfile.NamedTemporaryFile(mode='w', encoding='utf-8-sig', newline='\r\n', prefix='tmp-danmaku2ass-av%s-' % str(aid), suffix='.ass', delete=False)
+    else:
+        comment_out = tempfile.NamedTemporaryFile(mode='w', encoding='utf-8-sig', newline='\r\n', prefix='tmp-danmaku2ass-', suffix='.ass')
     logging.info('Invoking Danmaku2ASS, converting to %s' % comment_out.name)
     d2aflags = dict({'stage_width': video_size[0], 'stage_height': video_size[1], 'font_face': 'SimHei', 'font_size': math.ceil(video_size[1]/21.6), 'comment_duration': comment_duration}, **d2aflags)
     for i, j in ((('stage_width', 'stage_height', 'reserve_blank'), int), (('font_size', 'text_opacity', 'comment_duration'), float)):
@@ -293,6 +296,7 @@ def main():
     parser.add_argument('-q', '--quality', type=int, help='Specify video quality, -q 4 for HD')
     parser.add_argument('-v', '--verbose', action='store_true', help='Print more debugging information')
     parser.add_argument('--hd', action='store_true', help='Shorthand for -q 4')
+    parser.add_argument('-D', '--nodelsub', action='store_true', help='Don\'t delete subtitle file at temporary directory after quit')
     parser.add_argument('--mpvflags', metavar='FLAGS', default='', help='Parameters passed to mpv, formed as \'--option1=value1 --option2=value2\'')
     parser.add_argument('--d2aflags', '--danmaku2assflags', metavar='FLAGS', default='', help='Parameters passed to Danmaku2ASS, formed as \'option1=value1,option2=value2\'')
     parser.add_argument('url', metavar='URL', nargs='+', help='Bilibili video page URL (http://www.bilibili.com/video/av*/)')
@@ -306,7 +310,7 @@ def main():
     retval = 0
     for url in args.url:
         try:
-            retval = retval or biligrab(url, debug=args.debug, verbose=args.verbose, media=args.media, cookie=args.cookie, overseas=args.overseas, quality=quality, mpvflags=mpvflags, d2aflags=d2aflags)
+            retval = retval or biligrab(url, debug=args.debug, verbose=args.verbose, media=args.media, cookie=args.cookie, overseas=args.overseas, quality=quality, nodelsub=args.nodelsub, mpvflags=mpvflags, d2aflags=d2aflags)
         except OSError as e:
             logging.error(e)
             retval = retval or e.errno
