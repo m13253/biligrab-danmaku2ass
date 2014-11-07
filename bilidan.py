@@ -120,10 +120,7 @@ def biligrab(url, *, debug=False, verbose=False, media=None, cookie=None, nodels
     logging.info('Loading comments...')
     _, resp_comment = urlfetch(url_get_comment % {'cid': cid}, cookie=cookie)
     comment_in = io.StringIO(resp_comment.decode('utf-8', 'replace'))
-    if nodelsub:
-        comment_out = tempfile.NamedTemporaryFile(mode='w', encoding='utf-8-sig', newline='\r\n', prefix='tmp-danmaku2ass-av%s-' % str(aid), suffix='.ass', delete=False)
-    else:
-        comment_out = tempfile.NamedTemporaryFile(mode='w', encoding='utf-8-sig', newline='\r\n', prefix='tmp-danmaku2ass-', suffix='.ass')
+    comment_out = tempfile.NamedTemporaryFile(mode='w', encoding='utf-8-sig', newline='\r\n', prefix='tmp-danmaku2ass-av%s-' % str(aid), suffix='.ass', delete=not nodelsub)
     logging.info('Invoking Danmaku2ASS, converting to %s' % comment_out.name)
     d2aflags = dict({'stage_width': video_size[0], 'stage_height': video_size[1], 'font_face': 'SimHei', 'font_size': math.ceil(video_size[1]/21.6), 'comment_duration': comment_duration}, **d2aflags)
     for i, j in ((('stage_width', 'stage_height', 'reserve_blank'), int), (('font_size', 'text_opacity', 'comment_duration'), float)):
