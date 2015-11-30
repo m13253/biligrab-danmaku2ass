@@ -42,6 +42,7 @@ import logging
 import math
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import urllib.parse
@@ -55,9 +56,10 @@ USER_AGENT_API = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:6.0.2) Gecko/20100101 F
 APPKEY = '85eb6835b0a1034e'  # The same key as in original Biligrab
 APPSEC = '2ad42749773c441109bdc0191257a664'  # Do not abuse please, get one yourself if you need
 BILIGRAB_HEADER = {'User-Agent': USER_AGENT_API, 'Cache-Control': 'no-cache', 'Pragma': 'no-cache'}
+RECORD_FNAME = 'bilibili-av%s-%s%s' # filename format of recorded files. The last %s is the file extension (.flv, .mp4, etc.)
 
 
-def biligrab(url, *, debug=False, verbose=False, media=None, cookie=None, quality=None, source=None, keep_fps=False, mpvflags=[], d2aflags={}, fakeip=None):
+def biligrab(url, path, *, debug=False, verbose=False, media=None, cookie=None, quality=None, source=None, record=False, keep_fps=False, mpvflags=[], d2aflags={}, fakeip=None):
 
     url_get_metadata = 'http://api.bilibili.com/view?'
     url_get_comment = 'http://comment.bilibili.com/%(cid)s.xml'
@@ -236,6 +238,17 @@ def biligrab(url, *, debug=False, verbose=False, media=None, cookie=None, qualit
         if increase_fps and mpv_version_gte_0_6:  # Drop frames at vo side but not at decoder side to prevent A/V sync issues
             command_line += ['--framedrop', 'vo']
         command_line += ['--http-header-fields', 'User-Agent: '+USER_AGENT_PLAYER.replace(',', '\\,')]
+        if record: # Dump stream to file if record flag is set
+            aid, pid = parse_url(url) # get aid to add to filename
+            src_fname, ext = os.path.splitext(urllib.parse.urlparse(media_urls[0]).path) # get file extension from first source URL
+            filename = RECORD_FNAME % (aid, video_metadata['cid'], ext)
+            command_line += ['--stream-dump=%s' % str(os.path.join(path, filename))]
+            logging.info('NOTICE: Ignore "Exiting... (Errors when loading file)", the video downloaded correctly if "Dumping..." finishes.')
+
+            try: # if file exists, delete it first
+                os.remove(filename)
+            except OSError:
+                pass
         if mpv_version_gte_0_6:
             if mpv_version_gte_0_10:
                 command_line += ['--force-media-title', video_metadata.get('title', url)]
@@ -281,6 +294,12 @@ def biligrab(url, *, debug=False, verbose=False, media=None, cookie=None, qualit
     logging.info('Loading video info...')
     video_metadata = fetch_video_metadata(aid, pid)
     logging.info('Got video cid: %s' % video_metadata['cid'])
+    if record: # save video metadata as well
+        json_fname = RECORD_FNAME % (aid, video_metadata['cid'], '.json')
+        json_path = os.path.join(path, json_fname)
+        video_metadata['url'] = url # add HTTP video URL to the JSON
+        with open(json_path, 'w') as f: # write object to JSON, pretty printed
+            json.dump(video_metadata, f, sort_keys=True, indent=4, separators=(',', ': '))
 
     logging.info('Loading video content...')
     if media is None:
@@ -300,6 +319,8 @@ def biligrab(url, *, debug=False, verbose=False, media=None, cookie=None, qualit
 
     logging.info('Loading comments...')
     comment_out = convert_comments(video_metadata['cid'], video_size)
+    if record:  # save comments in current directory if recording
+        shutil.copy(comment_out.name, os.path.join(path, RECORD_FNAME % (aid, video_metadata['cid'], '.ass')))
 
     logging.info('Launching media player...')
     player_exit_code = launch_player(video_metadata, media_urls, comment_out, increase_fps=not keep_fps)
@@ -442,6 +463,8 @@ def main():
                                                'overseas: CDN acceleration for users outside china\n' +
                                                'flvcd: Video parsing service provided by FLVCD.com\n' +
                                                'html5: Low quality video provided by m.acg.tv for mobile users')
+    parser.add_argument('-r', '--record', action='store_true', help='Save the video/comments/metadata instead of playing it.')
+    parser.add_argument('-p', '--path', help='If using -r/--record, save the video/comments/metadata to a specified folder.')
     parser.add_argument('-f', '--fakeip', help='Fake ip for bypassing restrictions.')
     parser.add_argument('-v', '--verbose', action='store_true', help='Print more debugging information')
     parser.add_argument('--hd', action='store_true', help='Shorthand for -q 4')
@@ -458,12 +481,19 @@ def main():
     if source not in {None, 'overseas', 'html5', 'flvcd', 'bilipr'}:
         raise ValueError('invalid value specified for --source, see --help for more information')
     mpvflags = args.mpvflags.split()
+    record = args.record if args.record is not None else None
+    if record and args.path is not None: # if path specified
+        path = args.path
+    elif record: # if no path specified
+        path = os.getcwd()
+    else: # if not recording
+        path = None
     d2aflags = dict((i.split('=', 1) if '=' in i else [i, ''] for i in args.d2aflags.split(','))) if args.d2aflags else {}
     fakeip = args.fakeip if args.fakeip else None
     retval = 0
     for url in args.url:
         try:
-            retval = retval or biligrab(url, debug=args.debug, verbose=args.verbose, media=args.media, cookie=args.cookie, quality=quality, source=source, keep_fps=args.keep_fps, mpvflags=mpvflags, d2aflags=d2aflags, fakeip=args.fakeip)
+            retval = retval or biligrab(url, path=path, debug=args.debug, verbose=args.verbose, media=args.media, cookie=args.cookie, quality=quality, source=source, record=record, keep_fps=args.keep_fps, mpvflags=mpvflags, d2aflags=d2aflags, fakeip=args.fakeip)
         except OSError as e:
             logging.error(e)
             retval = retval or e.errno
