@@ -1,7 +1,7 @@
 Biligrab-Danmaku2ASS
 ====================
 
-Play videos on Bilibili.com with MPV and Danmaku2ASS
+Play/download videos + comments on Bilibili.com with MPV and Danmaku2ASS
 
 
 Requirements
@@ -23,6 +23,7 @@ Example
 ./bilidan.py http://www.bilibili.com/video/av314/     # High density comments!
 ./bilidan.py http://www.bilibili.com/video/av332732/index_7.html # Extreme density!
 ./bilidan.py http://www.bilibili.com/video/av297197/  # Even Toukome (advanced comments)!
+./bilidan.py http://www.bilibili.com/video/av3208070/ --record # Download a video with comments!
 ```
 Use option `--source overseas` if your are outside China. And `--source html5`  to use the the experimental HTML5 API.
 Use `--fakeip` if you can't get valid media URLs due to ip restrictions.
@@ -46,7 +47,8 @@ Why Biligrab-Danmaku2ASS?
   Danmaku2ASS has passed a
   [extreme density test](http://www.bilibili.com/video/av332732/index_7.html) at
   60 fps on a Intel Core i5 laptop.
-
+- Download the video + comments to watch later, using `--record`! 
+  
 
 Tips
 ----
@@ -56,6 +58,8 @@ Tips
   with `--cookie` option.
 - If you have difficulties connecting to video server, try `--overseas`.
 - If your computer is not fast enough, try `--mpvflags '--framedrop yes'`.
+- Use `--record` to download the video + comments, and add `--path /path/to/folder`
+  to save it in a different folder.
 - Use `--d2aflags 'duration_marquee=5'` to set comment flow speed.
 - Use `--d2aflags 'text_opacity=0.8'` to set comment opacity.
 - Try to fast forward or rewind when streaming is stuck, or to tweak cache
